@@ -1,0 +1,190 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Track OpenResty workers</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>lua-resty-worker-manager</h1>
+
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Status">Status </a></li>
+<li><a href="#Synopsis">Synopsis </a></li>
+<li><a href="#Description">Description </a></li>
+<li><a href="#History">History </a></li>
+<li><a href="#Copyright_and_License">Copyright and License </a></li>
+</ul>
+
+
+<h2>Topics</h2>
+<ul class="">
+  <li><strong>readme</strong></li>
+</ul>
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><a href="../index.html">resty.worker.manager</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+
+<h1>lua-resty-worker-manager</h1>
+
+
+<p>Tracks workers and nodes starting/restarting/reloading/stopping.</p>
+
+<p><a name="Status"></a></p>
+<h2>Status</h2>
+
+<p>This library is still under early development, and currently lacks tests.</p>
+
+<p><a name="Synopsis"></a></p>
+<h2>Synopsis</h2>
+
+
+<pre>
+http {
+    lua_shared_dict my_shm <span class="number">5</span>m;
+
+    init_by_lua_block {
+        <span class="global">require</span>(<span class="string">"resty.worker.manager"</span>).on_init_by_lua({
+                shm = <span class="string">"my_shm"</span>,
+                interval = <span class="number">10</span>,  <span class="comment">-- worker heartbeat interval in seconds
+</span>                failed = <span class="number">5</span>, <span class="comment">-- max heartbeat overrun to detect crashed worker, in seconds
+</span>            },
+            <span class="keyword">function</span>(master_id, n_prev, n_mine, n_next)
+                ngx.log(ngx.ERR, <span class="string">"================================= Master start ================================="</span>)
+                <span class="keyword">if</span> n_prev == <span class="keyword">nil</span> <span class="keyword">then</span>
+                    <span class="comment">-- no previous master, so this is nginx start or restart
+</span>                <span class="keyword">else</span>
+                    <span class="comment">-- previous master, so we are reloading
+</span>                    <span class="keyword">if</span> n_prev == <span class="number">0</span> <span class="keyword">then</span>
+                        <span class="comment">-- all old workers have already exited
+</span>                    <span class="keyword">else</span>
+                        <span class="comment">-- stil 'n_prev' old workers are running
+</span>                    <span class="keyword">end</span>
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>,
+            <span class="keyword">function</span>(master_id, n_prev, n_mine, n_next)
+                ngx.log(ngx.ERR, <span class="string">"================================= Master exit =================================="</span>)
+                <span class="keyword">if</span> n_next == <span class="keyword">nil</span> <span class="keyword">then</span>
+                    <span class="comment">-- we are stopping this nginx node
+</span>                <span class="keyword">else</span>
+                    <span class="comment">-- we are only reloading, all our workers have already exited, this code
+</span>                    <span class="comment">-- runs on the last worker.
+</span>                    <span class="keyword">if</span> n_next &gt; <span class="number">0</span> <span class="keyword">then</span>
+                        <span class="comment">-- new workers have already been initialized
+</span>                    <span class="keyword">end</span>
+                <span class="keyword">end</span>
+            <span class="keyword">end</span>)
+        kong = <span class="global">require</span> <span class="string">'kong'</span>
+        kong.init()
+    }
+
+    init_worker_by_lua_block {
+        <span class="global">require</span>(<span class="string">"resty.worker.manager"</span>).on_init_worker_by_lua(
+            <span class="keyword">function</span>(worker_id, n_prev, n_mine, n_next)
+                ngx.log(ngx.ERR, <span class="string">"--------------------------------- Worker start ---------------------------------"</span>)
+                <span class="keyword">if</span> n_prev == <span class="keyword">nil</span> <span class="keyword">then</span>
+                    <span class="comment">-- we're (re)starting nginx
+</span>                <span class="keyword">else</span>
+                    <span class="comment">-- we are reloading nginx
+</span>                <span class="keyword">end</span>
+                <span class="keyword">if</span> n_mine == <span class="number">1</span> <span class="keyword">then</span>
+                    <span class="comment">-- I'm the very first worker to start
+</span>                <span class="keyword">else</span>
+                    <span class="comment">-- other workers have started before me
+</span>                <span class="keyword">end</span>
+            <span class="keyword">end</span>,
+            <span class="keyword">function</span>(worker_id, n_prev, n_mine, n_next)
+                ngx.log(ngx.ERR, <span class="string">"--------------------------------- Worker exit ----------------------------------"</span>)
+                <span class="keyword">if</span> n_next == <span class="keyword">nil</span> <span class="keyword">then</span>
+                    <span class="comment">-- we're stopping nginx
+</span>                <span class="keyword">else</span>
+                    <span class="comment">-- we are reloading nginx
+</span>                <span class="keyword">end</span>
+                <span class="keyword">if</span> n_mine == <span class="number">1</span> <span class="keyword">then</span>
+                    <span class="comment">-- I'm the very last worker to exit
+</span>                <span class="keyword">else</span>
+                    <span class="comment">-- I'm not the last worker, there are more
+</span>                <span class="keyword">end</span>
+            <span class="keyword">end</span>)
+        kong.init_worker()
+    }
+}
+</pre>
+
+
+<p><a name="Description"></a></p>
+<h2>Description</h2>
+
+<p>Within Nginx/OpenResty it is not always easy to detect workers starting/stopping
+and to distinguish between starting/restarting/reloading/stopping the server.
+That is what this module does. It detects those, and allows to run synchonized
+code (protected within a lock) when it does</p>
+
+<p>See the <a href="http://kong.github.io/lua-resty-worker-manager">online LDoc documentation</a>
+for the complete API.</p>
+
+<p><a name="History"></a></p>
+<h2>History</h2>
+
+<h3>0.1 (xx-Nov-xx) Initial release</h3>
+
+<ul>
+    <li>Initial upload</li>
+</ul>
+
+<p><a name="Copyright_and_License"></a></p>
+<h2>Copyright and License</h2>
+
+<pre><code> Copyright 2017 Kong Inc.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+</code></pre>
+
+
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2017-11-27 16:31:49 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>

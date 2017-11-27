@@ -1,0 +1,11 @@
+project='lua-resty-worker-manager'
+title='Track OpenResty workers'
+description='Tracks workers starting and stopping'
+format='discount'
+file='./lib/'
+dir='docs'
+readme='readme.md'
+sort=true
+sort_modules=true
+all=false
+style='./docs/'

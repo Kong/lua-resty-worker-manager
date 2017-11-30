@@ -52,22 +52,19 @@ http {
         require("resty.worker.manager").on_init_worker_by_lua(
             function(worker_id, n_prev, n_mine, n_next)
                 ngx.log(ngx.ERR, "--------------------------------- Worker start ---------------------------------")
-                if n_prev == nil then
-                    -- we're (re)starting nginx
-                else
-                    -- we are reloading nginx
-                end
                 if n_mine == 1 then
                     -- I'm the very first worker to start
+                elseif n_mine > ngx.worker.count() then
+                    -- a worker failed and exited, this a respawned worker.
+                    -- After the failed worker heart-beat times out then
+                    -- n_mine == ngx.worker.count() again
                 else
                     -- other workers have started before me
                 end
             end,
             function(worker_id, n_prev, n_mine, n_next)
                 ngx.log(ngx.ERR, "--------------------------------- Worker exit ----------------------------------")
-                if n_next == nil then
-                    -- we're stopping nginx
-                else
+                if n_next then
                     -- we are reloading nginx
                 end
                 if n_mine == 1 then
